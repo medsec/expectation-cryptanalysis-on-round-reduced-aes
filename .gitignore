@@ -30,3 +30,15 @@
 *.exe
 *.out
 *.app
+
+# CMake-related
+CMakeCache.txt
+cmake-build-debug
+.idea
+CMakeFiles
+Makefile
+cmake_install.cmake
+callgrind.*
+
+# folders
+cpp/bin
