@@ -1,18 +1,20 @@
 /**
  * __author__ = anonymized
- * __date__   = 2018-03-31
- * __copyright__ = CC0
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
 
-#include <gtest/gtest.h>
 #include <stdint.h>
+#include <gtest/gtest.h>
 
 #include "ciphers/speck64.h"
 #include "utils/utils.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::speck64_context_t;
+using ciphers::speck64_96_key_t;
+using ciphers::speck64_state_t;
+using utils::assert_equal;
 
 // ---------------------------------------------------------
 
@@ -24,7 +26,8 @@ static void run_encryption_test(const speck64_96_key_t key,
 
     speck64_state_t ciphertext;
     speck64_encrypt(&ctx, plaintext, ciphertext);
-    ASSERT_TRUE(assert_equal(expected_ciphertext, ciphertext, (size_t)SPECK_64_NUM_STATE_BYTES));
+    ASSERT_TRUE(assert_equal(expected_ciphertext, ciphertext,
+        (size_t)SPECK_64_NUM_STATE_BYTES));
 }
 
 // ---------------------------------------------------------
@@ -37,7 +40,8 @@ static void run_decryption_test(const speck64_96_key_t key,
 
     speck64_state_t plaintext;
     speck64_decrypt(&ctx, ciphertext, plaintext);
-    ASSERT_TRUE(assert_equal(expected_plaintext, plaintext, (size_t)SPECK_64_NUM_STATE_BYTES));
+    ASSERT_TRUE(assert_equal(expected_plaintext, plaintext,
+        (size_t)SPECK_64_NUM_STATE_BYTES));
 }
 
 // ---------------------------------------------------------

@@ -1,18 +1,20 @@
 /**
  * __author__ = anonymized
- * __date__   = 2018-03-31
- * __copyright__ = CC0
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
 
-#include <gtest/gtest.h>
 #include <stdint.h>
+#include <gtest/gtest.h>
 
 #include "ciphers/small_aes.h"
 #include "utils/utils.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::small_aes_ctx_t;
+using ciphers::small_aes_key_t;
+using ciphers::small_aes_state_t;
+using utils::assert_equal;
 
 // ---------------------------------------------------------
 
@@ -44,11 +46,10 @@ static void run_decryption_test(const small_aes_key_t key,
 
 // ---------------------------------------------------------
 
-static void run_encryption_test_of_two(const small_aes_key_t key,
-                                       const uint8_t plaintexts[2 *
-                                                                SMALL_AES_NUM_STATE_BYTES],
-                                       const uint8_t expected_ciphertexts[2 *
-                                                                          SMALL_AES_NUM_STATE_BYTES]) {
+static void run_encryption_test_of_two(
+    const small_aes_key_t key,
+    const uint8_t plaintexts[2 * SMALL_AES_NUM_STATE_BYTES],
+    const uint8_t expected_ciphertexts[2 * SMALL_AES_NUM_STATE_BYTES]) {
     small_aes_ctx_t ctx;
     small_aes_key_setup(&ctx, key);
     small_aes_key_setup_2(&ctx);
@@ -61,11 +62,10 @@ static void run_encryption_test_of_two(const small_aes_key_t key,
 
 // ---------------------------------------------------------
 
-static void run_encryption_test_of_four(const small_aes_key_t key,
-                                        const uint8_t plaintexts[4 *
-                                                                 SMALL_AES_NUM_STATE_BYTES],
-                                        const uint8_t expected_ciphertexts[4 *
-                                                                           SMALL_AES_NUM_STATE_BYTES]) {
+static void run_encryption_test_of_four(
+    const small_aes_key_t key,
+    const uint8_t plaintexts[4 * SMALL_AES_NUM_STATE_BYTES],
+    const uint8_t expected_ciphertexts[4 * SMALL_AES_NUM_STATE_BYTES]) {
     small_aes_ctx_t ctx;
     small_aes_key_setup(&ctx, key);
     small_aes_key_setup_4(&ctx);
@@ -352,9 +352,11 @@ TEST(Small_AES, test_encrypt_6_rounds_only_sbox_in_final_with_aes_ni) {
     small_aes_ctx_t ctx;
     small_aes_key_setup(&ctx, key);
 
-    __m128i ciphertext = small_aes_encrypt_rounds_only_sbox_in_final_with_aes_ni(
-        &ctx, plaintext, num_rounds
-    );
+    __m128i ciphertext =
+        small_aes_encrypt_rounds_only_sbox_in_final_with_aes_ni(&ctx,
+            plaintext,
+            num_rounds
+        );
     ASSERT_TRUE(vare_equal(expected_ciphertext, ciphertext));
 }
 

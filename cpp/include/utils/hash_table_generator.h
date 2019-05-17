@@ -1,13 +1,13 @@
 /**
- * Utility functions.
+ * Generates the hash tables for the AES.
  *
- * __author__ = anonymous
- * __date__   = 2018-05
+ * __author__ = anonymized
+ * __date__   = 2019-05
  * __copyright__ = Creative Commons CC0
  */
 
-#ifndef _FOO_H_
-#define _FOO_H_
+#ifndef _HASH_TABLE_GENERATOR_H_
+#define _HASH_TABLE_GENERATOR_H_
 
 #include <string>
 #include <vector>
@@ -53,4 +53,4 @@ namespace utils {
 
 // ---------------------------------------------------------------------
 
-#endif  // _FOO_H_
+#endif  // _HASH_TABLE_GENERATOR_H_

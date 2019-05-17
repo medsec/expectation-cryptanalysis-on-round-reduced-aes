@@ -1,20 +1,21 @@
 /**
  * __author__ = anonymized
- * __date__   = 2018-03-31
- * __copyright__ = CC0
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
 
-#include <gtest/gtest.h>
 #include <stdint.h>
-
+#include <gtest/gtest.h>
 
 #include "ciphers/small_aes.h"
 #include "utils/hash_table_generator.h"
 #include "utils/utils.h"
 
-
-using namespace ciphers;
-using namespace utils;
+using ciphers::SMALL_AES_INVERSE_SBOX_ARRAY;
+using utils::ExtendedDDT;
+using utils::IntegerList;
+using utils::IntegerMatrix;
+using utils::HashTableGenerator;
 
 // ---------------------------------------------------------
 

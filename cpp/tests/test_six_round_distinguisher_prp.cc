@@ -35,7 +35,6 @@ using ciphers::speck64_state_t;
 using utils::ArgumentParser;
 using utils::print_hex;
 using utils::to_uint64;
-using utils::convert_to_uint64;
 using utils::zeroize_array;
 
 // ---------------------------------------------------------
@@ -43,7 +42,6 @@ using utils::zeroize_array;
 // ---------------------------------------------------------
 
 const size_t NUM_TEXTS_PER_STRUCTURE = 1 << 16;
-const size_t NUM_CONSIDERED_ROUNDS = 6;
 
 // ---------------------------------------------------------
 // Types
@@ -55,7 +53,7 @@ typedef std::vector<uint64_t> UInt64Vector;
 
 typedef struct {
     small_aes_key_t key;
-    small_aes_ctx_t cipher_ctx;
+    speck64_context_t cipher_ctx;
     bool has_set_key = false;
     size_t num_collisions = 0;
     size_t num_multi_column_collisions = 0;
@@ -86,50 +84,41 @@ static void log_double(const std::string &label,
 // Helper methods
 // ---------------------------------------------------------
 
-static __m128i
-generate_diagonal_base_plaintext(const size_t i) {
-    // Zeroize
-    // 0 x x x
-    // x 0 x x
-    // x x 0 x
-    // x x x 0
-    return vsetr8(
-        0, 0, (uint8_t) ((i >> 28) & 0xF), (uint8_t) ((i >> 24) & 0xF),
-        0, 0, (uint8_t) ((i >> 20) & 0xF), (uint8_t) ((i >> 16) & 0xF),
-        (uint8_t) ((i >> 12) & 0xF), (uint8_t) ((i >> 8) & 0xF), 0, 0,
-        (uint8_t) ((i >> 4) & 0xF), (uint8_t) (i & 0xF), 0, 0
-    );
-
-    // Random choice can produce collisions
-    // utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
+static void generate_diagonal_base_plaintext(speck64_state_t base_plaintext,
+                                             const size_t i) {
+    // Zeroize the main diagonal and set the index into the other 'x' bytes:
+    // 0 0 x x
+    // 0 0 x x
+    // x x 0 0
+    // x x 0 0
+    memset(base_plaintext, 0x00, SPECK_64_NUM_STATE_BYTES);
+    base_plaintext[1] = (uint8_t) ((i >> 24) & 0xFF);
+    base_plaintext[3] = (uint8_t) ((i >> 16) & 0xFF);
+    base_plaintext[4] = (uint8_t) ((i >> 8) & 0xFF);
+    base_plaintext[6] = (uint8_t) (i & 0xFF);
 }
 
 // ---------------------------------------------------------
 
-static __m128i
-get_diagonal_text_from_delta_set(const __m128i base_plaintext, const size_t i) {
+static void get_diagonal_text_from_delta_set(speck64_state_t plaintext,
+                                             const size_t i) {
     // Extract from i = [i0 i1 i2 i3]
     // i0 x  x  x
     // x  i1 x  x
     // x  x  i2 x
     // x  x  x  i3
-
-    return vxor(base_plaintext, vsetr8(
-        (uint8_t) ((i >> 12) & 0xF), 0, 0, 0,
-        0, (uint8_t) ((i >> 8) & 0xF), 0, 0,
-        0, 0, (uint8_t) ((i >> 4) & 0xF), 0,
-        0, 0, 0, (uint8_t) (i & 0xF)
-    ));
+    plaintext[0] = (uint8_t) ((i >> 8) & 0xF0);
+    plaintext[2] = (uint8_t) ((i >> 8) & 0x0F);
+    plaintext[5] = (uint8_t) (i & 0xF0);
+    plaintext[7] = (uint8_t) (i & 0x0F);
 }
 
 // ---------------------------------------------------------
 
-static inline __m128i encrypt(const small_aes_ctx_t *aes_context,
-                              __m128i plaintext,
-                              const size_t num_rounds) {
-    return small_aes_encrypt_rounds_only_sbox_in_final_with_aes_ni(
-        aes_context, plaintext, num_rounds
-    );
+static void encrypt(const speck64_context_t *cipher_ctx,
+                    speck64_state_t plaintext,
+                    speck64_state_t ciphertext) {
+    return speck64_encrypt(cipher_ctx, plaintext, ciphertext);
 }
 
 // ---------------------------------------------------------
@@ -270,21 +259,26 @@ static IntegerPair count_collisions(ExperimentContext *context) {
 
 // ---------------------------------------------------------
 
-static void collect_pairs_for_structure(const small_aes_ctx_t *cipher_ctx,
+static void collect_pairs_for_structure(const speck64_context_t *cipher_ctx,
                                         const size_t structure_index,
-                                        const size_t num_rounds,
                                         UInt64List &list,
                                         UInt64List count_lists[SMALL_AES_NUM_COLUMNS]) {
-    __m128i base_plaintext = generate_diagonal_base_plaintext(structure_index);
+    speck64_state_t base_plaintext;
+    generate_diagonal_base_plaintext(base_plaintext, structure_index);
 
     for (size_t j = 0; j < NUM_TEXTS_PER_STRUCTURE; ++j) {
         // Prepare plaintext
-        const __m128i plaintext = get_diagonal_text_from_delta_set(
-            base_plaintext, j);
+        speck64_state_t plaintext;
+        memcpy(plaintext, base_plaintext, SPECK_64_NUM_STATE_BYTES);
+        get_diagonal_text_from_delta_set(plaintext, j);
 
         // Encrypt and store to four lists
-        const __m128i ciphertext = encrypt(cipher_ctx, plaintext, num_rounds);
-        const uint64_t ciphertext_as_int = convert_to_uint64(ciphertext);
+        speck64_state_t ciphertext;
+        encrypt(cipher_ctx, plaintext, ciphertext);
+
+        uint64_t ciphertext_as_int;
+        to_uint64(&ciphertext_as_int, ciphertext, SPECK_64_NUM_STATE_BYTES);
+
         list[j] = ciphertext_as_int;
 
         for (size_t i = 0; i < SMALL_AES_NUM_COLUMNS; ++i) {
@@ -325,13 +319,13 @@ static void perform_experiment(ExperimentContext *context) {
     // Set up the key
     // ---------------------------------------------------------
 
-    small_aes_ctx_t *cipher_ctx = &context->cipher_ctx;
+    speck64_context_t *cipher_ctx = &context->cipher_ctx;
 
     if (!context->has_set_key) {
         utils::get_random_bytes(context->key, SMALL_AES_NUM_KEY_BYTES);
     }
 
-    small_aes_key_setup(cipher_ctx, context->key);
+    speck64_96_key_schedule(cipher_ctx, context->key);
     context->num_collisions = 0;
     context->num_multi_column_collisions = 0;
 
@@ -349,8 +343,10 @@ static void perform_experiment(ExperimentContext *context) {
          ++i) {
 
         init_lists(context->count_lists, NUM_TEXTS_PER_STRUCTURE);
-        collect_pairs_for_structure(cipher_ctx, i, NUM_CONSIDERED_ROUNDS,
-                                    context->list, context->count_lists);
+        collect_pairs_for_structure(cipher_ctx,
+                                    i,
+                                    context->list,
+                                    context->count_lists);
         const IntegerPair pair = count_collisions(context);
         context->num_collisions += pair.first;
         context->num_multi_column_collisions += pair.second;
@@ -394,7 +390,7 @@ static void
 parse_args(ExperimentContext *context, int argc, const char **argv) {
     ArgumentParser parser;
     parser.appName("Test for the Small-AES six-round distinguisher.");
-    parser.helpString("Evaluates with the Small-AES the number of inverse-"
+    parser.helpString("Evaluates with the Speck64 as PRP the number of inverse-"
                       "diagonal collisions after six rounds. The number is "
                       "evaluated for structures of plaintexts that iterate over "
                       "all values in the first diagonal.");

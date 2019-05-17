@@ -1,16 +1,17 @@
 /**
  * __author__ = anonymized
- * __date__   = 2019-03-31
- * __copyright__ = CC0
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
 
-#include <gtest/gtest.h>
 #include <stdint.h>
+#include <gtest/gtest.h>
 
 #include "utils/utils.h"
 
 
-using namespace utils;
+using utils::assert_equal;
+using utils::convert_to_uint64;
 
 // ---------------------------------------------------------
 

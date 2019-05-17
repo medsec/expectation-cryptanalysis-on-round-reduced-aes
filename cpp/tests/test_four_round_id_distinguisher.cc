@@ -1,12 +1,12 @@
 /**
- * __author__ = anonymous
- * __date__   = 2019-01
- * __copyright__ = CC0
+ * __author__ = anonymized
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
-#include <array>
-#include <vector>
 #include <stdint.h>
 #include <stdlib.h>
+#include <array>
+#include <vector>
 
 #include "ciphers/aes.h"
 #include "ciphers/aes_state.h"
@@ -15,8 +15,15 @@
 #include "utils/xorshift1024.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::aes128_ctx_t;
+using ciphers::aes_state_t;
+using ciphers::aes128_key_t;
+using ciphers::AESState;
+using ciphers::aes_invert_shift_rows;
+using utils::print_hex;
+using utils::xor_arrays;
+using utils::ArgumentParser;
+using utils::xorshift_prng_ctx_t;
 
 // ---------------------------------------------------------
 
@@ -55,7 +62,7 @@ static uint32_t extract_column(const aes_state_t array, const size_t column_inde
 
 struct AESStateColumnSorter {
     explicit AESStateColumnSorter(const size_t sort_column_index) :
-        sort_column_index(sort_column_index) {};
+        sort_column_index(sort_column_index) {}
 
     bool operator() (const AESState& left, const AESState& right) const {
         return extract_column(left.state, sort_column_index) <
@@ -216,7 +223,7 @@ static void parse_args(ExperimentContext* context, int argc, const char** argv) 
     parser.addArgument("-s", "--num_sets_per_key", 1, false);
 
     try {
-        parser.parse(argc, argv);
+        parser.parse((size_t)argc, argv);
 
         context->num_sets_per_key = parser.retrieveAsLong("s");
         context->num_keys = parser.retrieveAsLong("k");

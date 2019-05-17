@@ -1,8 +1,8 @@
 /**
  * Utility functions.
  *
- * __author__ = anonymous
- * __date__   = 2018-05
+ * __author__ = anonymized
+ * __date__   = 2019-05
  * __copyright__ = Creative Commons CC0
  */
 
@@ -12,7 +12,10 @@
 #include "utils/hash_table_generator.h"
 #include "utils/product.h"
 
-using namespace ciphers;
+
+using ciphers::small_aes_state_t;
+using ciphers::small_aes_invert_mix_columns;
+using ciphers::to_byte_array;
 
 // ---------------------------------------------------------------------
 
@@ -53,9 +56,9 @@ namespace utils {
     // ---------------------------------------------------------------------
 
     void HashTableGenerator::create_hash_table(
-        ExtendedDDT& hash_table,
+        ExtendedDDT &hash_table,
         const size_t active_cell_index,
-        const ExtendedDDT& extended_ddt) {
+        const ExtendedDDT &extended_ddt) {
 
         const size_t num_bits = 4;
         const size_t num_values = 1 << num_bits; // 16
@@ -66,7 +69,8 @@ namespace utils {
         // For all 1-nibble differences gamma, get the differences
         // beta = MC^{-1}(gamma).
         for (size_t gamma = 1; gamma < num_values; ++gamma) {
-            betas[gamma] = invert_mixcolumns(gamma, active_cell_index);
+            betas[gamma] = invert_mixcolumns((const uint8_t) gamma,
+                                             active_cell_index);
         }
 
         hash_table.clear();
@@ -80,21 +84,21 @@ namespace utils {
 
     // ---------------------------------------------------------------------
 
-    size_t to_single_value(const IntegerList& column) {
+    size_t to_single_value(const IntegerList &column) {
         assert(column.size() >= 4);
         return ((column[0] & 0xF) << 12)
-            | ((column[1] & 0xF) << 8)
-            | ((column[2] & 0xF) << 4)
-            | (column[3] & 0xF);
+               | ((column[1] & 0xF) << 8)
+               | ((column[2] & 0xF) << 4)
+               | (column[3] & 0xF);
     }
 
     // ---------------------------------------------------------------------
 
     void HashTableGenerator::get_transitions(
-        IntegerMatrix& possible_transitions,
+        IntegerMatrix &possible_transitions,
         const size_t alpha,
-        const IntegerList& betas,
-        const ExtendedDDT& extended_ddt) {
+        const IntegerList &betas,
+        const ExtendedDDT &extended_ddt) {
 
         const size_t num_bits = 4;
         const size_t num_values = 1 << num_bits;
@@ -109,7 +113,7 @@ namespace utils {
             for (size_t j = 0; j < 4; ++j) {
                 const size_t alpha_i = (alpha >> ((3 - j) * num_bits)) & 0xF;
                 const size_t beta_i = (beta >> ((3 - j) * num_bits)) & 0xF;
-                const IntegerList& possible_values = extended_ddt[alpha_i][beta_i];
+                const IntegerList &possible_values = extended_ddt[alpha_i][beta_i];
 
                 if (possible_values.empty()) {
                     do_continue = true;
@@ -140,8 +144,8 @@ namespace utils {
     // ---------------------------------------------------------------------
 
     void HashTableGenerator::compute_extended_ddt(
-        ExtendedDDT& extended_ddt,
-        const size_t* sbox,
+        ExtendedDDT &extended_ddt,
+        const size_t *sbox,
         const size_t num_entries) {
 
         extended_ddt.clear();
@@ -161,11 +165,11 @@ namespace utils {
             size_t y = sbox[x];
 
             for (size_t delta_x = 0; delta_x < num_entries; ++delta_x) {
-                size_t x_prime = x ^ delta_x;
+                size_t x_prime = x ^delta_x;
                 size_t y_prime = sbox[x_prime];
-                size_t delta_y = y ^ y_prime;
+                size_t delta_y = y ^y_prime;
 
-                IntegerList& entry = extended_ddt[delta_x][delta_y];
+                IntegerList &entry = extended_ddt[delta_x][delta_y];
                 entry.push_back(x);
             }
         }
@@ -174,12 +178,12 @@ namespace utils {
     // ---------------------------------------------------------
 
     void HashTableGenerator::print_extended_ddt(
-        const ExtendedDDT& extended_ddt,
+        const ExtendedDDT &extended_ddt,
         const size_t num_entries) {
 
         for (size_t delta_x = 0; delta_x < num_entries; ++delta_x) {
             for (size_t delta_y = 0; delta_y < num_entries; ++delta_y) {
-                const IntegerList& values_i_j = extended_ddt[delta_x][delta_y];
+                const IntegerList &values_i_j = extended_ddt[delta_x][delta_y];
                 printf("[%01lx][%01lx]: ", delta_x, delta_y);
 
                 for (size_t k = 0; k < values_i_j.size(); ++k) {

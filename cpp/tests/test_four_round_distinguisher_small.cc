@@ -1,12 +1,12 @@
 /**
- * __author__ = anonymous
- * __date__   = 2019-01
- * __copyright__ = CC0
+ * __author__ = anonymized
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
-#include <array>
-#include <vector>
 #include <stdint.h>
 #include <stdlib.h>
+#include <array>
+#include <vector>
 
 #include "ciphers/random_function.h"
 #include "ciphers/small_aes.h"
@@ -17,8 +17,16 @@
 #include "utils/xorshift1024.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::small_aes_ctx_t;
+using ciphers::small_aes_state_t;
+using ciphers::small_aes_key_t;
+using ciphers::SmallState;
+using ciphers::speck64_context_t;
+using ciphers::speck64_96_key_t;
+using ciphers::speck64_state_t;
+using utils::xor_arrays;
+using utils::ArgumentParser;
+using utils::xorshift_prng_ctx_t;
 
 // ---------------------------------------------------------
 
@@ -112,36 +120,6 @@ static size_t perform_experiment_with_prp(ExperimentContext* context) {
             SmallState ciphertext;
             get_text_from_delta_set(plaintext, j);
             speck64_encrypt(&cipher_ctx, plaintext, ciphertext.state);
-            ciphertexts.push_back(ciphertext);
-        }
-
-        num_collisions += find_num_collisions(ciphertexts);
-
-        if (i > 0) {
-            if ((i & 0xFFFFF) == 0) {
-                printf("Tested %8zu sets. Collisions: %8zu\n", i,
-                       num_collisions);
-            }
-        }
-    }
-
-    return num_collisions;
-}
-
-// ---------------------------------------------------------
-
-static size_t perform_experiment_with_prf(ExperimentContext* context) {
-    RandomFunction prf(SMALL_AES_NUM_STATE_BYTES);
-
-    size_t num_collisions = 0;
-    auto num_sets_per_key = (const size_t)(1L << context->num_sets_per_key);
-
-    for (size_t i = 0; i < num_sets_per_key; ++i) {
-        SmallStatesVector ciphertexts;
-
-        for (size_t j = 0; j < NUM_TEXTS_IN_DELTA_SET; ++j) {
-            SmallState ciphertext;
-            prf.encrypt(ciphertext.state);
             ciphertexts.push_back(ciphertext);
         }
 

@@ -1,6 +1,6 @@
 /**
- * __author__ = anonymous
- * __date__   = 2019-01
+ * __author__ = anonymized
+ * __date__   = 2019-05
  * __copyright__ = CC0
  */
 #ifndef _RANDOM_FUNCTION_H_
@@ -25,7 +25,7 @@ namespace ciphers {
             xorshift1024_init(&xorshift_prng_ctx);
         }
 
-        void encrypt(uint8_t* ciphertext) {
+        void encrypt(uint8_t *ciphertext) {
             utils::get_random_bytes(&xorshift_prng_ctx, ciphertext, num_bytes);
         }
 

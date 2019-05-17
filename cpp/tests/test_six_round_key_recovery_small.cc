@@ -1,15 +1,15 @@
 /**
- * __author__ = anonymous
- * __date__   = 2019-01
- * __copyright__ = CC0
+ * __author__ = anonymized
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
+#include <stdint.h>
+#include <stdlib.h>
+
 #include <map>
 #include <vector>
 #include <numeric>      // std::iota
 #include <algorithm>    // std::sort
-
-#include <stdint.h>
-#include <stdlib.h>
 
 #include "ciphers/random_function.h"
 #include "ciphers/small_aes.h"
@@ -22,8 +22,23 @@
 #include "utils/xorshift1024.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::SMALL_AES_SBOX_ARRAY;
+using ciphers::small_aes_ctx_t;
+using ciphers::small_aes_state_t;
+using ciphers::small_aes_key_t;
+using ciphers::SmallState;
+using ciphers::SmallStatePair;
+using ciphers::speck64_context_t;
+using ciphers::speck64_96_key_t;
+using ciphers::speck64_state_t;
+using utils::ArgumentParser;
+using utils::HashTableGenerator;
+using utils::IntegerList;
+using utils::IntegerMatrix;
+using utils::print_hex;
+using utils::to_uint64;
+using utils::xor_arrays;
+using utils::zeroize_array;
 
 // ---------------------------------------------------------
 
@@ -54,14 +69,8 @@ generate_diagonal_base_plaintext(small_aes_state_t plaintext, const size_t i) {
     // x 0 x x
     // x x 0 x
     // x x x 0
-    // TODO: Choose randomly
     memset(plaintext, 0x00, SMALL_AES_NUM_STATE_BYTES);
-
-    // Random choice can produce collisions
-    // utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
-
-    // Non-random indexing the plaintext bytes that are not used to
-    // create structures
+    // Index the plaintext bytes that are not used for creating structures
     plaintext[1] = (uint8_t) ((i >> 24) & 0xFF);
     plaintext[3] = (uint8_t) ((i >> 16) & 0xFF);
     plaintext[4] = (uint8_t) ((i >> 8) & 0xFF);
@@ -463,7 +472,7 @@ static void perform_experiment(ExperimentContext *context) {
 
     sort_key_candidates(sorted_key_indices, key_candidates);
     print_best_key_candidates(correct_key, sorted_key_indices, key_candidates,
-                              context->num_keys_to_print);
+                              NUM_TEXTS_PER_STRUCTURE);
 }
 
 // ---------------------------------------------------------

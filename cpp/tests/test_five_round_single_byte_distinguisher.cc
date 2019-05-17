@@ -1,12 +1,13 @@
 /**
- * __author__ = anonymous
- * __date__   = 2019-01
- * __copyright__ = CC0
+ * __author__ = anonymized
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
-#include <algorithm>
-#include <vector>
 #include <stdint.h>
 #include <stdlib.h>
+
+#include <algorithm>
+#include <vector>
 
 #include "ciphers/random_function.h"
 #include "ciphers/aes.h"
@@ -15,8 +16,13 @@
 #include "utils/utils.h"
 #include "utils/xorshift1024.h"
 
-using namespace ciphers;
-using namespace utils;
+
+using ciphers::aes128_ctx_t;
+using ciphers::aes_state_t;
+using ciphers::aes128_key_t;
+using utils::xor_arrays;
+using utils::ArgumentParser;
+using utils::xorshift_prng_ctx_t;
 
 // ---------------------------------------------------------
 
@@ -38,6 +44,7 @@ typedef std::vector<size_t> HistogramVector;
 
 static void generate_base_plaintext(aes_state_t plaintext,
                                     const size_t index) {
+    (void)index;
     utils::get_random_bytes(plaintext, AES_NUM_STATE_BYTES);
     plaintext[0] = 0;
     plaintext[5] = 0;
@@ -98,23 +105,8 @@ static void add_to_num_occurrences(HistogramVector &histogram,
 
 // ---------------------------------------------------------
 
-static void print_histogram(const HistogramVector& histogram) {
-    for (size_t i = 0; i < histogram.size(); ++i) {
-        if (histogram[i] > 0) {
-            printf("%6zu: %4zu times\n", i, histogram[i]);
-        }
-    }
-}
-
-// ---------------------------------------------------------
-
-static void init_histogram(HistogramVector& histogram,
-                           const size_t num_entries) {
-    histogram.resize(num_entries);
-
-    for (size_t i = 0; i < num_entries; ++i) {
-        histogram[i] = 0;
-    }
+static void init_histogram(HistogramVector& histogram) {
+    std::fill(histogram.begin(), histogram.end(), 0);
 }
 
 // ---------------------------------------------------------
@@ -123,6 +115,10 @@ static size_t find_num_collisions(const HistogramVector& histogram) {
     size_t result = 0;
 
     for (const auto& value : histogram) {
+        if (value < 2) {
+            continue;
+        }
+
         result += value * (value - 1) / 2;
     }
 
@@ -140,11 +136,19 @@ static HistogramVector perform_experiment(ExperimentContext* context) {
 
     auto num_structures_per_key = context->num_structures_per_key;
 
-    HistogramVector num_occurrences_vector;
-    HistogramVector histogram;
+    HistogramVector num_occurrences_vector(256);
+    HistogramVector histogram(50);
 
-    init_histogram(num_occurrences_vector, 256);
-    init_histogram(histogram, 50);
+    init_histogram(num_occurrences_vector);
+    init_histogram(histogram);
+
+    printf("#                      ");
+
+    for (size_t modulus = 2; modulus <= 100; ++modulus) {
+        printf("%2zu ", modulus);
+    }
+
+    puts("");
 
     for (size_t i = 0; i < num_structures_per_key; ++i) {
         aes_state_t plaintext;
@@ -153,7 +157,7 @@ static HistogramVector perform_experiment(ExperimentContext* context) {
         for (size_t j = 0; j < NUM_TEXTS_IN_STRUCTURE; ++j) {
             aes_state_t ciphertext;
             get_text_from_delta_set(plaintext, j);
-            
+
             encrypt(&cipher_ctx, context->num_rounds, plaintext, ciphertext);
             add_to_num_occurrences(num_occurrences_vector, ciphertext);
 
@@ -165,9 +169,14 @@ static HistogramVector perform_experiment(ExperimentContext* context) {
         const size_t num_collisions = find_num_collisions(
             num_occurrences_vector
         );
-        printf("#Collisions: %6zu (mod 8: %2zu, mod 4: %2zu)\n",
-               num_collisions, num_collisions % 8, num_collisions % 4
-        );
+
+        printf("#Collisions: %6zu ", num_collisions);
+
+        for (size_t modulus = 2; modulus <= 100; ++modulus) {
+            printf("%2zu ", num_collisions % modulus);
+        }
+
+        puts("");
 
         add_to_histogram(histogram, num_occurrences_vector);
     }
@@ -180,7 +189,6 @@ static HistogramVector perform_experiment(ExperimentContext* context) {
 static void perform_experiments(ExperimentContext* context) {
     for (size_t i = 0; i < context->num_keys; ++i) {
         HistogramVector histogram = perform_experiment(context);
-//        print_histogram(histogram);
         printf("%4zu/%4zu\n", i+1, context->num_keys);
     }
 }
@@ -192,7 +200,8 @@ static void perform_experiments(ExperimentContext* context) {
 static void parse_args(ExperimentContext* context, int argc, const char** argv) {
     ArgumentParser parser;
     parser.appName("Test for the AES-128 five-round distinguisher that tests for"
-                   "the number of collisions in the first byte.");
+                   "the number of collisions in the first byte from structures with"
+                   "the first diagonal active.");
     parser.addArgument("-k", "--num_keys", 1, false);
     parser.addArgument("-s", "--num_structures_per_key", 1, false);
     parser.addArgument("-r", "--num_rounds", 1, false);

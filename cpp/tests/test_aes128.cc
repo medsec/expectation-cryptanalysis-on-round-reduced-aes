@@ -1,18 +1,20 @@
 /**
- * __author__ = anonymous
- * __date__   = 2018-07
- * __copyright__ = CC0
+ * __author__ = anonymized
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
 
-#include <gtest/gtest.h>
 #include <stdint.h>
+#include <gtest/gtest.h>
 
 #include "ciphers/aes.h"
 #include "utils/utils.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::aes128_ctx_t;
+using ciphers::aes128_key_t;
+using ciphers::aes_state_t;
+using utils::assert_equal;
 
 // ---------------------------------------------------------
 

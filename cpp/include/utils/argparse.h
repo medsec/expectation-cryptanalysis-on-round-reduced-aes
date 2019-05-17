@@ -125,7 +125,7 @@ private:
         template <typename ValueType>
         ValueType* toPtr() const {
             return content->type_info() == typeid(ValueType)
-                       ? &static_cast<Holder<ValueType>*>(content)->held_
+                       ? &(static_cast<Holder<ValueType>*>(content)->held_)
                        : 0;
         }
         template <typename ValueType>
@@ -152,7 +152,7 @@ private:
         class Holder : public PlaceHolder {
         public:
             ValueType held_;
-            Holder(const ValueType& value) : held_(value) {}
+            explicit Holder(const ValueType& value) : held_(value) {}
             virtual const std::type_info& type_info() const { return typeid(ValueType); }
             virtual PlaceHolder* clone() const { return new Holder(held_); }
         };

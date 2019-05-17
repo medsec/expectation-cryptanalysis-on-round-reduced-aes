@@ -1,8 +1,6 @@
 /**
- * C
- *
- * __author__ = anonymous
- * __date__   = 2018-05
+ * __author__ = anonymized
+ * __date__   = 2019-05
  * __copyright__ = Creative Commons CC0
  */
 #ifndef _SMALL_AES_STATE_PAIR_H_

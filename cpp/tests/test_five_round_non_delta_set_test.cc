@@ -1,14 +1,15 @@
 /**
- * __author__ = anonymous
- * __date__   = 2019-01
- * __copyright__ = CC0
+ * __author__ = anonymized
+ * __date__   = 2019-05
+ * __copyright__ = Creative Commons CC0
  */
-#include <map>
-#include <vector>
-
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#include <map>
+#include <vector>
+
 
 #include "ciphers/small_aes.h"
 #include "ciphers/small_state.h"
@@ -18,8 +19,14 @@
 #include "utils/xorshift1024.h"
 
 
-using namespace ciphers;
-using namespace utils;
+using ciphers::small_aes_ctx_t;
+using ciphers::small_aes_state_t;
+using ciphers::small_aes_key_t;
+using ciphers::SmallState;
+using ciphers::SmallStatePair;
+using utils::ArgumentParser;
+using utils::print_hex;
+using utils::xor_arrays;
 
 // ---------------------------------------------------------
 // Constants

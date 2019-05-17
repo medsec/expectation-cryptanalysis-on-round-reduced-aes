@@ -1,8 +1,10 @@
 /**
- * C implementation of the AES.
+ * C implementation of Speck-64.
  *
- * __author__ = anonymous
- * __date__   = 2018-05
+ * Do NOT use for any production purpose. No guarantees are given for anything.
+ *
+ * __author__ = anonymized
+ * __date__   = 2019-05
  * __copyright__ = Creative Commons CC0
  */
 #include <stdint.h>
