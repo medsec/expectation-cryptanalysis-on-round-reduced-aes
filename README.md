@@ -1,5 +1,5 @@
 
-# Extended Expectation Cryptanalysis on Round-reduced AES and Small-AES
+# Extended Truncated-differential Cryptanalysis on Round-reduced AES and Small-AES
 
 This repository contains the experiments for expectation cryptanalysis on round-reduced AES and its small-scale version [CMR05].
 
