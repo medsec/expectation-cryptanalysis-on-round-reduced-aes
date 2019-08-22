@@ -1,5 +1,5 @@
 /**
- * Implementation Small-scale AES with nibbles. 
+ * Implementation of Small-AES with nibbles.
  * Uses SSE Instructions for performance, but uses only the low four bits
  * of each byte.
  * 
@@ -322,6 +322,32 @@ namespace ciphers {
 
         state = small_aes_encrypt_last_round(state, keys[num_rounds]);
         to_byte_array(ciphertext, state);
+    }
+
+    // ---------------------------------------------------------------------
+
+    void small_aes_decrypt_rounds_always_mc(const small_aes_ctx_t *ctx,
+                                            const small_aes_state_t ciphertext,
+                                            small_aes_state_t plaintext,
+                                            const size_t num_rounds) {
+        if (num_rounds > SMALL_AES_NUM_ROUNDS) {
+            return;
+        }
+
+        if (num_rounds == 0) {
+            memcpy(plaintext, ciphertext, SMALL_AES_NUM_STATE_BYTES);
+            return;
+        }
+
+        __m128i state = to_lower_nibbles(ciphertext);
+        const __m128i *keys = ctx->key;
+
+        for (size_t i = num_rounds; i > 0; --i) {
+            state = small_aes_decrypt_round(state, keys[i]);
+        }
+
+        state = vxor(state, keys[0]);
+        to_byte_array(plaintext, state);
     }
 
     // ---------------------------------------------------------------------

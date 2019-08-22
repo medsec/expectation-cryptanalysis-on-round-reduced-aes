@@ -164,6 +164,18 @@ namespace utils {
                       size_t num_expected_bytes,
                       size_t num_actual_bytes);
 
+    // ---------------------------------------------------------------------
+
+    double compute_mean(const std::vector<size_t>& values);
+
+    // ---------------------------------------------------------------------
+
+    double compute_variance(const std::vector<size_t>& values);
+
+    // ---------------------------------------------------------------------
+
+    double compute_standard_deviation(const std::vector<size_t>& values);
+
     // ---------------------------------------------------------
     // Printing
     // ---------------------------------------------------------

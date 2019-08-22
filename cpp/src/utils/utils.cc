@@ -6,6 +6,7 @@
 
 // ---------------------------------------------------------------------
 
+#include <math.h>
 #include <smmintrin.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -16,6 +17,53 @@
 // ---------------------------------------------------------------------
 
 namespace utils {
+
+    double compute_mean(const std::vector<size_t>& values) {
+        const size_t num_values = values.size();
+
+        if (num_values == 0) {
+            return 0.0;
+        }
+
+        size_t sum = 0;
+
+        for (const size_t value : values) {
+            sum += value;
+        }
+
+        return (double)sum / (double)num_values;
+    }
+
+    // ---------------------------------------------------------------------
+
+    double compute_variance(const std::vector<size_t>& values) {
+        const size_t num_values = values.size();
+
+        if (num_values == 0) {
+            return 0.0;
+        }
+
+        if (num_values == 1) {
+            return 0.0;
+        }
+
+        const double mean = compute_mean(values);
+        double variance = 0.0;
+
+        for (const size_t value : values) {
+            variance += ((double)value - mean) * ((double)value - mean);
+        }
+
+        return variance / (double)(num_values - 1);
+    }
+
+    // ---------------------------------------------------------------------
+
+    double compute_standard_deviation(const std::vector<size_t>& values) {
+        return sqrt(compute_variance(values));
+    }
+
+    // ---------------------------------------------------------------------
 
     void print_128(const char *label, const __m128i variable) {
         uint8_t val[16];

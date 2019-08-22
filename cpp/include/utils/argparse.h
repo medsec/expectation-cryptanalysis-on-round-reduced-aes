@@ -220,7 +220,7 @@ private:
         
         String toString(bool named = true) const {
             std::ostringstream s;
-            String uname = name.empty() ? upper(strip(short_name)) : upper(strip(name));
+            String uname = upper(strip(short_name)) + " " + upper(strip(name));
 
             if (named && optional) {
                 s << "[";

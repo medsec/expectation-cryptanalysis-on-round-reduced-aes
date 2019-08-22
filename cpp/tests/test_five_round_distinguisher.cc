@@ -11,21 +11,18 @@
 #include <stdlib.h>
 
 #include "ciphers/random_function.h"
-#include "ciphers/small_aes.h"
-#include "ciphers/small_state.h"
-#include "ciphers/speck64.h"
+#include "ciphers/aes.h"
+#include "ciphers/aes_state.h"
 #include "utils/argparse.h"
 #include "utils/utils.h"
 #include "utils/xorshift1024.h"
 
 
-using ciphers::small_aes_ctx_t;
-using ciphers::small_aes_state_t;
-using ciphers::small_aes_key_t;
-using ciphers::SmallState;
-using ciphers::speck64_context_t;
-using ciphers::speck64_96_key_t;
-using ciphers::speck64_state_t;
+using ciphers::aes128_ctx_t;
+using ciphers::aes_state_t;
+using ciphers::aes128_key_t;
+using ciphers::AESState;
+using utils::assert_equal;
 using utils::compute_mean;
 using utils::compute_variance;
 using utils::xor_arrays;
@@ -34,17 +31,16 @@ using utils::ArgumentParser;
 // ---------------------------------------------------------
 
 static const size_t NUM_CONSIDERED_ROUNDS = 5;
-static const size_t NUM_TEXTS_IN_DELTA_SET = 16;
+static const size_t NUM_TEXTS_IN_DELTA_SET = 256;
 
 // ---------------------------------------------------------
 
 typedef struct {
-    small_aes_key_t key;
-    small_aes_ctx_t cipher_ctx;
+    aes128_key_t key;
+    aes128_ctx_t cipher_ctx;
     size_t num_keys;
     size_t num_sets_per_key;
     std::vector<size_t> num_matches;
-    bool use_prp = false;
     bool use_all_delta_sets_from_diagonal = false;
 } ExperimentContext;
 
@@ -55,114 +51,104 @@ typedef struct {
 
 typedef size_t (*experiment_function_t)(ExperimentContext *);
 
-typedef std::vector<SmallState> SmallStatesVector;
+typedef std::vector<AESState> AESStatesVector;
 
 // ---------------------------------------------------------
 
 static void
-generate_base_plaintext(small_aes_state_t plaintext) {
-    utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
+generate_base_plaintext(aes_state_t plaintext) {
+    utils::get_random_bytes(plaintext, AES_NUM_STATE_BYTES);
     plaintext[0] = 0;
+    plaintext[5] = 0;
+    plaintext[10] = 0;
+    plaintext[15] = 0;
 }
 
 // ---------------------------------------------------------
 
 static void
-get_text_from_delta_set(small_aes_state_t base_text, const size_t i) {
-    base_text[0] = (uint8_t) ((i << 4) & 0xF0);
+get_text_from_delta_set(aes_state_t base_text, const size_t i) {
+    base_text[0] = (uint8_t) i;
 }
 
 // ---------------------------------------------------------
 
 static void
-generate_base_plaintext_in_diagonal(small_aes_state_t plaintext,
+generate_base_plaintext_in_diagonal(aes_state_t plaintext,
                                     const size_t set_index_in_diagonal,
                                     const size_t byte_index_in_diagonal) {
     if (byte_index_in_diagonal == 0) {
-        plaintext[2] = (uint8_t) (((set_index_in_diagonal >> 8) & 0x0F) |
-                                  (plaintext[2] & 0xF0));
-        plaintext[5] = (uint8_t) ((set_index_in_diagonal & 0xF0) |
-                                  (plaintext[5] & 0x0F));
-        plaintext[7] = (uint8_t) ((set_index_in_diagonal & 0x0F) |
-                                  (plaintext[7] & 0xF0));
+        plaintext[5] = (uint8_t) ((set_index_in_diagonal >> 16) & 0xFF);
+        plaintext[10] = (uint8_t) ((set_index_in_diagonal >> 8) & 0xFF);
+        plaintext[15] = (uint8_t) (set_index_in_diagonal & 0xFF);
     } else if (byte_index_in_diagonal == 1) {
-        plaintext[0] = (uint8_t) (((set_index_in_diagonal >> 4) & 0xF0) |
-                                  (plaintext[0] & 0x0F));
-        plaintext[5] = (uint8_t) ((set_index_in_diagonal & 0xF0) |
-                                  (plaintext[5] & 0x0F));
-        plaintext[7] = (uint8_t) ((set_index_in_diagonal & 0x0F) |
-                                  (plaintext[7] & 0xF0));
+        plaintext[0] = (uint8_t) ((set_index_in_diagonal >> 16) & 0xFF);
+        plaintext[10] = (uint8_t) ((set_index_in_diagonal >> 8) & 0xFF);
+        plaintext[15] = (uint8_t) (set_index_in_diagonal & 0xFF);
     } else if (byte_index_in_diagonal == 2) {
-        plaintext[0] = (uint8_t) (((set_index_in_diagonal >> 4) & 0xF0) |
-                                  (plaintext[0] & 0x0F));
-        plaintext[2] = (uint8_t) (((set_index_in_diagonal >> 4) & 0x0F) |
-                                  (plaintext[2] & 0xF0));
-        plaintext[7] = (uint8_t) ((set_index_in_diagonal & 0x0F) |
-                                  (plaintext[7] & 0xF0));
+        plaintext[0] = (uint8_t) ((set_index_in_diagonal >> 16) & 0xFF);
+        plaintext[5] = (uint8_t) ((set_index_in_diagonal >> 8) & 0xFF);
+        plaintext[15] = (uint8_t) (set_index_in_diagonal & 0xFF);
     } else if (byte_index_in_diagonal == 3) {
-        plaintext[0] = (uint8_t) (((set_index_in_diagonal >> 4) & 0xF0) |
-                                  (plaintext[0] & 0x0F));
-        plaintext[2] = (uint8_t) (((set_index_in_diagonal >> 4) & 0x0F) |
-                                  (plaintext[2] & 0xF0));
-        plaintext[5] = (uint8_t) ((set_index_in_diagonal & 0xF0) |
-                                  (plaintext[5] & 0x0F));
+        plaintext[0] = (uint8_t) ((set_index_in_diagonal >> 16) & 0xFF);
+        plaintext[5] = (uint8_t) ((set_index_in_diagonal >> 8) & 0xFF);
+        plaintext[10] = (uint8_t) (set_index_in_diagonal & 0xFF);
     }
 }
 
 // ---------------------------------------------------------
 
 static void
-get_text_from_diagonal_delta_set(small_aes_state_t plaintext,
+get_text_from_diagonal_delta_set(aes_state_t plaintext,
                                  const size_t byte_index_in_diagonal,
                                  const size_t index_in_delta_set) {
     if (byte_index_in_diagonal == 0) {
-        plaintext[0] = (uint8_t) ((plaintext[0] & 0x0F) |
-                                  ((index_in_delta_set << 4) & 0xF0));
+        plaintext[0] = (uint8_t) index_in_delta_set;
     } else if (byte_index_in_diagonal == 1) {
-        plaintext[2] = (uint8_t) ((plaintext[2] & 0xF0) |
-                                  (index_in_delta_set & 0x0F));
+        plaintext[5] = (uint8_t) index_in_delta_set;
     } else if (byte_index_in_diagonal == 2) {
-        plaintext[5] = (uint8_t) ((plaintext[5] & 0x0F) |
-                                  ((index_in_delta_set << 4) & 0xF0));
+        plaintext[10] = (uint8_t) index_in_delta_set;
     } else if (byte_index_in_diagonal == 3) {
-        plaintext[7] = (uint8_t) ((plaintext[7] & 0xF0) |
-                                  (index_in_delta_set & 0x0F));
+        plaintext[15] = (uint8_t) index_in_delta_set;
     }
 }
 
 // ---------------------------------------------------------
 
-static void encrypt(const small_aes_ctx_t *aes_context,
-                    small_aes_state_t plaintext,
-                    SmallState &ciphertext) {
-    small_aes_encrypt_rounds_only_sbox_in_final(
+static void encrypt(const aes128_ctx_t *aes_context,
+                    aes_state_t plaintext,
+                    AESState &ciphertext) {
+    aes128_encrypt_rounds_only_sbox_in_final(
         aes_context, plaintext, ciphertext.state, NUM_CONSIDERED_ROUNDS
     );
 }
 
 // ---------------------------------------------------------
 
-bool has_zero_column(const small_aes_state_t state) {
-    return ((state[0] == 0) && (state[1] == 0))
-           || ((state[2] == 0) && (state[3] == 0))
-           || ((state[4] == 0) && (state[5] == 0))
-           || ((state[6] == 0) && (state[7] == 0));
+bool has_zero_column(const aes_state_t state) {
+    return ((state[0] == 0) && (state[1] == 0) && (state[2] == 0) &&
+            (state[3] == 0))
+           || ((state[4] == 0) && (state[5] == 0) && (state[6] == 0) &&
+               (state[7] == 0))
+           || ((state[8] == 0) && (state[9] == 0) && (state[10] == 0) &&
+               (state[11] == 0))
+           || ((state[12] == 0) && (state[13] == 0) && (state[14] == 0) &&
+               (state[15] == 0));
 }
 
 // ---------------------------------------------------------
 
-static size_t find_num_collisions(SmallStatesVector &ciphertexts) {
+static size_t find_num_collisions(AESStatesVector &ciphertexts) {
     const size_t num_texts = ciphertexts.size();
     size_t num_collisions = 0;
-    small_aes_state_t temp;
+    aes_state_t temp;
 
     for (size_t i = 0; i != num_texts; ++i) {
-        const SmallState left = ciphertexts[i];
+        const AESState left = ciphertexts[i];
 
         for (size_t j = i + 1; j != num_texts; ++j) {
-            const SmallState right = ciphertexts[j];
-            xor_arrays(temp, left.state, right.state,
-                       SMALL_AES_NUM_STATE_BYTES);
+            const AESState right = ciphertexts[j];
+            xor_arrays(temp, left.state, right.state, AES_NUM_STATE_BYTES);
 
             if (has_zero_column(temp)) {
                 num_collisions++;
@@ -176,22 +162,22 @@ static size_t find_num_collisions(SmallStatesVector &ciphertexts) {
 // ---------------------------------------------------------
 
 static size_t perform_experiment(ExperimentContext *context) {
-    small_aes_ctx_t cipher_ctx = context->cipher_ctx;
-    small_aes_key_t key;
+    aes128_ctx_t cipher_ctx = context->cipher_ctx;
+    aes128_key_t key;
 
-    utils::get_random_bytes(key, SMALL_AES_NUM_KEY_BYTES);
-    small_aes_key_setup(&cipher_ctx, key);
-    utils::print_hex("# Key", key, SMALL_AES_NUM_KEY_BYTES);
+    utils::get_random_bytes(key, AES_128_NUM_KEY_BYTES);
+    aes128_key_setup(&cipher_ctx, key);
+    utils::print_hex("# Key", key, AES_128_NUM_KEY_BYTES);
 
     size_t num_collisions = 0;
 
     for (size_t i = 0; i < context->num_sets_per_key; ++i) {
-        SmallStatesVector ciphertexts;
-        small_aes_state_t plaintext;
+        AESStatesVector ciphertexts;
+        aes_state_t plaintext;
         generate_base_plaintext(plaintext);
 
         for (size_t j = 0; j < NUM_TEXTS_IN_DELTA_SET; ++j) {
-            SmallState ciphertext;
+            AESState ciphertext;
             get_text_from_delta_set(plaintext, j);
             encrypt(&cipher_ctx, plaintext, ciphertext);
             ciphertexts.push_back(ciphertext);
@@ -213,27 +199,27 @@ static size_t perform_experiment(ExperimentContext *context) {
 // ---------------------------------------------------------
 
 static size_t perform_experiment_from_diagonal(ExperimentContext *context) {
-    small_aes_ctx_t cipher_ctx = context->cipher_ctx;
-    small_aes_key_t key;
+    aes128_ctx_t cipher_ctx = context->cipher_ctx;
+    aes128_key_t key;
 
-    utils::get_random_bytes(key, SMALL_AES_NUM_KEY_BYTES);
-    small_aes_key_setup(&cipher_ctx, key);
-    utils::print_hex("# Key", key, SMALL_AES_NUM_KEY_BYTES);
+    utils::get_random_bytes(key, AES_128_NUM_KEY_BYTES);
+    aes128_key_setup(&cipher_ctx, key);
+    utils::print_hex("# Key", key, AES_128_NUM_KEY_BYTES);
 
     size_t num_collisions = 0;
-    const size_t num_sets_in_diagonal = 1L << 12;
+    const size_t num_sets_in_diagonal = 1L << 24;
     const size_t num_bytes_in_diagonal = 4;
 
-    small_aes_state_t plaintext;
+    aes_state_t plaintext;
     generate_base_plaintext(plaintext);
 
     for (size_t i = 0; i < num_sets_in_diagonal; ++i) {
         for (size_t m = 0; m < num_bytes_in_diagonal; ++m) {
             generate_base_plaintext_in_diagonal(plaintext, i, m);
-            SmallStatesVector ciphertexts;
+            AESStatesVector ciphertexts;
 
             for (size_t j = 0; j < NUM_TEXTS_IN_DELTA_SET; ++j) {
-                SmallState ciphertext;
+                AESState ciphertext;
                 get_text_from_diagonal_delta_set(plaintext, m, j);
                 encrypt(&cipher_ctx, plaintext, ciphertext);
                 ciphertexts.push_back(ciphertext);
@@ -255,52 +241,12 @@ static size_t perform_experiment_from_diagonal(ExperimentContext *context) {
 
 // ---------------------------------------------------------
 
-static size_t perform_experiment_with_prp(ExperimentContext *context) {
-    speck64_context_t cipher_ctx;
-    speck64_96_key_t key;
-
-    utils::get_random_bytes(key, SPECK_64_96_NUM_KEY_BYTES);
-    utils::print_hex("# Key", key, SPECK_64_96_NUM_KEY_BYTES);
-    speck64_96_key_schedule(&cipher_ctx, key);
-
-    size_t num_collisions = 0;
-
-    for (size_t i = 0; i < context->num_sets_per_key; ++i) {
-        SmallStatesVector ciphertexts;
-        speck64_state_t plaintext;
-        generate_base_plaintext(plaintext);
-
-        for (size_t j = 0; j < NUM_TEXTS_IN_DELTA_SET; ++j) {
-            SmallState ciphertext;
-            get_text_from_delta_set(plaintext, j);
-            speck64_encrypt(&cipher_ctx, plaintext, ciphertext.state);
-            ciphertexts.push_back(ciphertext);
-        }
-
-        num_collisions += find_num_collisions(ciphertexts);
-
-        if (i > 0) {
-            if ((i & 0xFFFFF) == 0) {
-                printf("# Tested %8zu sets. Collisions: %8zu\n", i,
-                       num_collisions);
-            }
-        }
-    }
-
-    return num_collisions;
-}
-
-// ---------------------------------------------------------
-
 static void perform_experiments(ExperimentContext *context) {
     experiment_function_t experiment_function = nullptr;
 
-    if (context->use_prp) {
-        experiment_function = &perform_experiment_with_prp;
-    } else if (!context->use_prp &&
-               !context->use_all_delta_sets_from_diagonal) {
+    if (!context->use_all_delta_sets_from_diagonal) {
         experiment_function = &perform_experiment;
-    } else if (!context->use_prp && context->use_all_delta_sets_from_diagonal) {
+    } else {
         experiment_function = &perform_experiment_from_diagonal;
     }
 
@@ -343,12 +289,10 @@ static void
 parse_args(ExperimentContext *context, int argc, const char **argv) {
     ArgumentParser parser;
     parser.appName("Test for the Small-AES five-round distinguisher."
-                   "If -d 1 -r 0 is set, uses all 4 * 2^12 * binom(16, 2) "
-                   "delta-sets from diagonals, but only for the Small-AES, "
-                   "not for the PRP.");
+                   "If -d 1 is set, uses all 4 * 2^24 * binom(256, 2) "
+                   "delta-sets from diagonals.");
     parser.addArgument("-k", "--num_keys", 1, false);
     parser.addArgument("-s", "--num_sets_per_key", 1, false);
-    parser.addArgument("-r", "--use_random_function", 1, false);
     parser.addArgument("-d", "--use_diagonals", 1, false);
 
     try {
@@ -357,7 +301,6 @@ parse_args(ExperimentContext *context, int argc, const char **argv) {
         context->num_sets_per_key = static_cast<const size_t>(1L
             << parser.retrieveAsLong("s"));
         context->num_keys = parser.retrieveAsLong("k");
-        context->use_prp = (bool) parser.retrieveAsInt("r");
         context->use_all_delta_sets_from_diagonal = (bool) parser.retrieveAsInt(
             "d");
     } catch (...) {
@@ -367,7 +310,6 @@ parse_args(ExperimentContext *context, int argc, const char **argv) {
 
     printf("#Keys           %8zu\n", context->num_keys);
     printf("#Sets/Key (log) %8zu\n", context->num_sets_per_key);
-    printf("#Uses PRP       %8d\n", context->use_prp);
     printf("#Uses Diagonal  %8d\n", context->use_all_delta_sets_from_diagonal);
 }
 

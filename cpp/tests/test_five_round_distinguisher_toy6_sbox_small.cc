@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 #include "ciphers/random_function.h"
-#include "ciphers/small_aes.h"
+#include "ciphers/small_aes_toy6_sbox.h"
 #include "ciphers/small_state.h"
 #include "ciphers/speck64.h"
 #include "utils/argparse.h"
@@ -26,6 +26,7 @@ using ciphers::SmallState;
 using ciphers::speck64_context_t;
 using ciphers::speck64_96_key_t;
 using ciphers::speck64_state_t;
+using utils::assert_equal;
 using utils::compute_mean;
 using utils::compute_variance;
 using utils::xor_arrays;
@@ -61,7 +62,7 @@ typedef std::vector<SmallState> SmallStatesVector;
 
 static void
 generate_base_plaintext(small_aes_state_t plaintext) {
-    utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
+    utils::get_random_bytes(plaintext, 8);
     plaintext[0] = 0;
 }
 
@@ -135,7 +136,7 @@ get_text_from_diagonal_delta_set(small_aes_state_t plaintext,
 static void encrypt(const small_aes_ctx_t *aes_context,
                     small_aes_state_t plaintext,
                     SmallState &ciphertext) {
-    small_aes_encrypt_rounds_only_sbox_in_final(
+    small_aes_toy6_sbox_encrypt_rounds_only_sbox_in_final(
         aes_context, plaintext, ciphertext.state, NUM_CONSIDERED_ROUNDS
     );
 }

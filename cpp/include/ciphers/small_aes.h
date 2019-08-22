@@ -73,6 +73,14 @@ namespace ciphers {
 
     // ---------------------------------------------------------------------
 
+    __m128i to_lower_nibbles(const small_aes_state_t input);
+
+    // ---------------------------------------------------------------------
+
+    __m128i to_nibbles(const uint8_t *input);
+
+    // ---------------------------------------------------------------------
+
     void small_aes_decrypt(const small_aes_ctx_t *ctx,
                            const small_aes_state_t ciphertext,
                            small_aes_state_t plaintext);
@@ -95,6 +103,13 @@ namespace ciphers {
     void small_aes_encrypt_rounds_always_mc(const small_aes_ctx_t *ctx,
                                             const small_aes_state_t plaintext,
                                             small_aes_state_t ciphertext,
+                                            size_t num_rounds);
+
+    // ---------------------------------------------------------------------
+
+    void small_aes_decrypt_rounds_always_mc(const small_aes_ctx_t *ctx,
+                                            const small_aes_state_t ciphertext,
+                                            small_aes_state_t plaintext,
                                             size_t num_rounds);
 
     // ---------------------------------------------------------------------

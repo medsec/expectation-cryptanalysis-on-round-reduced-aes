@@ -311,14 +311,14 @@ static void count_keys(const ExperimentContext *context,
                        ColumnToPairsList &list2,
                        ColumnToPairsList &list3,
                        IntegerList &key_candidates) {
-    puts("# Counting keys");
+    // puts("# Counting keys");
 
     find_collisions(context, list0, key_candidates, 0);
     find_collisions(context, list1, key_candidates, 1);
     find_collisions(context, list2, key_candidates, 2);
     find_collisions(context, list3, key_candidates, 3);
 
-    puts("# Counting keys done");
+    // puts("# Counting keys done");
 }
 
 // ---------------------------------------------------------
@@ -359,7 +359,7 @@ static void collect_pairs_for_structure(const small_aes_ctx_t *cipher_ctx,
                                         ColumnToPairsList &list1,
                                         ColumnToPairsList &list2,
                                         ColumnToPairsList &list3) {
-    puts("# Collecting pairs");
+    // puts("# Collecting pairs");
 
     small_aes_state_t base_plaintext;
     generate_diagonal_base_plaintext(base_plaintext, structure_index);
@@ -375,7 +375,7 @@ static void collect_pairs_for_structure(const small_aes_ctx_t *cipher_ctx,
         insert_to_lists(list0, list1, list2, list3, pair);
     }
 
-    puts("# Collecting pairs done");
+    // puts("# Collecting pairs done");
 }
 
 // ---------------------------------------------------------

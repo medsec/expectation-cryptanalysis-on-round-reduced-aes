@@ -62,28 +62,32 @@ typedef struct {
 
 static void
 generate_column_base_plaintext(small_aes_state_t plaintext, const size_t i) {
-    // Random choice can produce collisions
     utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
-
+    // Sets the structure index i = [i0 i1 i2 i3] although this entire test
+    // should be used only for a single structure:
+    // .  x  x  x
+    // x  .  x  x
+    // i0 i2 .  x
+    // i1 i3 x  .
     // Non-random indexing the plaintext bytes that are not used to
-    // create structures
-    plaintext[2] = (uint8_t) ((i >> 24) & 0xFF);
-    plaintext[3] = (uint8_t) ((i >> 16) & 0xFF);
-    plaintext[4] = (uint8_t) ((i >> 8) & 0xFF);
-    plaintext[5] = (uint8_t) (i & 0xFF);
+    // create structures since a random choice can produce collisions
+    plaintext[1] = (uint8_t) ((i >> 8) & 0xFF);
+    plaintext[3] = (uint8_t) (i & 0xFF);
 }
 
 // ---------------------------------------------------------
 
 static void
-get_column_text_from_delta_set(small_aes_state_t text, const size_t i) {
+set_first_diagonal_text_from_delta_set(small_aes_state_t text, const size_t i) {
     // Extract from i = [i0 i1 i2 i3]
     // i0 x  x  x
-    // i1 x  x  x
-    // i2 x  x  x
-    // i3 x  x  x
-    text[0] = (uint8_t) ((i >> 8) & 0xFF);
-    text[1] = (uint8_t) (i & 0xFF);
+    // x  i1 x  x
+    // x  x  i2 x
+    // x  x  x  i3
+    text[0] = (uint8_t) (((i >> 8) & 0xF0) | (text[0] & 0x0F));
+    text[2] = (uint8_t) (((i >> 8) & 0x0F) | (text[2] & 0xF0));
+    text[5] = (uint8_t) ((i & 0xF0) | (text[0] & 0x0F));
+    text[7] = (uint8_t) ((i & 0x0F) | (text[2] & 0xF0));
 }
 
 // ---------------------------------------------------------
@@ -103,6 +107,20 @@ static size_t extract_column(const small_aes_state_t state,
                              const size_t column_index) {
     const size_t byte_index = 2 * column_index;
     return (state[byte_index] << 8) | state[byte_index + 1];
+}
+
+// ---------------------------------------------------------
+
+static size_t extract_first_diagonal(const small_aes_state_t state) {
+    // Extract from i = [i0 i1 i2 i3]
+    // i0 x  x  x
+    // x  i1 x  x
+    // x  x  i2 x
+    // x  x  x  i3
+    return (size_t)( ((state[0] & 0xF0) << 8)
+        | ((state[2] & 0x0F) << 8)
+        | (state[5] & 0xF0)
+        | (state[7] & 0x0F) );
 }
 
 // ---------------------------------------------------------
@@ -135,8 +153,7 @@ static void insert_to_list(ColumnToPairsList &list,
                            size_t column_index,
                            const SmallStatePair &pair) {
     const size_t column_as_int = extract_column(pair.second, column_index);
-    std::vector<SmallStatePair> &plaintexts_with_column = list[column_as_int];
-    plaintexts_with_column.push_back(pair);
+    list[column_as_int].push_back(pair);
 }
 
 // ---------------------------------------------------------
@@ -170,7 +187,7 @@ static void collect_pairs_for_structure(const small_aes_ctx_t *cipher_ctx,
         // Prepare plaintext
         SmallStatePair pair;
         memcpy(pair.first, base_plaintext, SMALL_AES_NUM_STATE_BYTES);
-        get_column_text_from_delta_set(pair.first, j);
+        set_first_diagonal_text_from_delta_set(pair.first, j);
 
         // Encrypt and store to four lists
         encrypt(cipher_ctx, pair.first, pair.second, num_rounds);
@@ -253,7 +270,7 @@ static IntegerPair count_collisions_in_list(const ColumnToPairsList &list,
 
                 xor_arrays(delta_p, first_text.first, second_text.first,
                            SMALL_AES_NUM_STATE_BYTES);
-                const size_t p_column = extract_column(delta_p, 0);
+                const size_t p_column = extract_first_diagonal(delta_p);
 
                 if (is_only_single_cell_active(p_column)) {
                     num_delta_set_collisions++;
@@ -329,9 +346,6 @@ static void perform_experiment(ExperimentContext *context) {
     utils::get_random_bytes(correct_key, SMALL_AES_NUM_KEY_BYTES);
     small_aes_key_setup(cipher_ctx, correct_key);
 
-    context->num_delta_set_collisions = 0;
-    context->num_non_delta_set_collisions = 0;
-
     // ---------------------------------------------------------
     // Encrypt texts
     // ---------------------------------------------------------
@@ -339,21 +353,26 @@ static void perform_experiment(ExperimentContext *context) {
     for (size_t i = 0; i < context->num_structures_per_key; ++i) {
         printf("# Iteration %6zu\n", i);
 
+        context->num_delta_set_collisions = 0;
+        context->num_non_delta_set_collisions = 0;
+
         init_lists(context->list0, context->list1,
-                   context->list2, context->list3, NUM_TEXTS_PER_STRUCTURE);
-        collect_pairs_for_structure(cipher_ctx, i,
+                   context->list2, context->list3,
+                   NUM_TEXTS_PER_STRUCTURE);
+        collect_pairs_for_structure(cipher_ctx,
+                                    i,
                                     NUM_CONSIDERED_ROUNDS,
                                     context->list0, context->list1,
                                     context->list2, context->list3);
         count_collisions(context);
+
+        print_collisions(correct_key,
+                         context->num_delta_set_collisions,
+                         context->num_non_delta_set_collisions,
+                         context->num_structures_per_key);
     }
 
     puts("# Finished all structures\n");
-
-    print_collisions(correct_key,
-                     context->num_delta_set_collisions,
-                     context->num_non_delta_set_collisions,
-                     context->num_structures_per_key);
 }
 
 // ---------------------------------------------------------
@@ -372,7 +391,7 @@ static void
 parse_args(ExperimentContext *context, int argc, const char **argv) {
     ArgumentParser parser;
     parser.appName("Test");
-    parser.helpString("Evaluates with the Small-AES the number of inverse-"
+    parser.helpString("Evaluates with Small-AES the number of inverse-"
                       "diagonal collisions after five rounds. The number is "
                       "evaluated for structures of plaintexts that iterate over "
                       "all values in the first column. We compare the number "
