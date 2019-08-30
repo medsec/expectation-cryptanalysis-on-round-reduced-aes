@@ -51,7 +51,7 @@ typedef std::vector<SmallState> SmallStatesVector;
 
 static void generate_base_plaintext(small_aes_state_t plaintext) {
     // Use randomly
-    utils::get_random_bytes(plaintext, 8);
+    utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
 }
 
 // ---------------------------------------------------------

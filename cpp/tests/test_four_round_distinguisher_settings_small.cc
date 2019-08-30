@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "ciphers/random_function.h"
-#include "ciphers/small_aes_pride_sbox.h"
+#include "ciphers/small_aes.h"
 #include "ciphers/small_state.h"
 #include "ciphers/speck64.h"
 #include "utils/argparse.h"
@@ -42,6 +42,7 @@ typedef struct {
     small_aes_ctx_t cipher_ctx;
     size_t num_keys;
     size_t num_sets_per_key;
+    size_t setting_index;
     bool use_prp = false;
     bool use_all_delta_sets_from_diagonal = false;
     std::vector<size_t> num_matches;
@@ -65,8 +66,48 @@ static void generate_base_plaintext(small_aes_state_t plaintext) {
 // ---------------------------------------------------------
 
 static void get_text_from_delta_set(small_aes_state_t base_text,
-                                    const size_t i) {
-    base_text[0] = (uint8_t) ((i << 4) & 0xF0);
+                                    const size_t i,
+                                    const size_t setting_index) {
+    switch (setting_index) {
+        case 1:
+            base_text[0] = (uint8_t)i;
+            return;
+        case 2:
+            base_text[0] = (uint8_t)(i & 0x0F);
+            return;
+        case 3:
+            base_text[0] = (uint8_t) ((i << 4) & 0xF0);
+            return;
+        case 4:
+            base_text[0] = (uint8_t) (((i << 4) & 0xF0) | (base_text[0] & 0x0F));
+            return;
+        case 5:
+            base_text[7] = (uint8_t)i;
+            return;
+        case 6:
+            base_text[7] = (uint8_t)(i & 0x0F);
+            return;
+        case 7:
+            base_text[7] = (uint8_t) ((i & 0x0F) | (base_text[7] & 0xF0));
+            return;
+        case 8:
+            base_text[5] = (uint8_t) (((i << 4) & 0xF0) | (base_text[5] & 0x0F));
+            return;
+        case 9:
+            base_text[2] = (uint8_t) ((i & 0x0F) | (base_text[2] & 0xF0));
+            return;
+        case 10:
+            base_text[0] = (uint8_t) ((i & 0x0F) | (base_text[0] & 0xF0));
+            return;
+        case 11:
+            base_text[1] = (uint8_t) (((i << 4) & 0xF0) | (base_text[1] & 0x0F));
+            return;
+        case 12:
+            base_text[1] = (uint8_t) ((i & 0x0F) | (base_text[1] & 0xF0));
+            return;
+        default:
+            return;
+    }
 }
 
 // ---------------------------------------------------------
@@ -132,7 +173,7 @@ get_text_from_diagonal_delta_set(small_aes_state_t plaintext,
 static void encrypt(const small_aes_ctx_t *aes_context,
                     small_aes_state_t plaintext,
                     SmallState &ciphertext) {
-    small_aes_pride_sbox_encrypt_rounds_only_sbox_in_final(
+    small_aes_encrypt_rounds_only_sbox_in_final(
         aes_context, plaintext, ciphertext.state, NUM_CONSIDERED_ROUNDS
     );
 }
@@ -186,7 +227,7 @@ static size_t perform_experiment(ExperimentContext *context) {
 
         for (size_t j = 0; j < NUM_TEXTS_IN_DELTA_SET; ++j) {
             SmallState ciphertext;
-            get_text_from_delta_set(plaintext, j);
+            get_text_from_delta_set(plaintext, j, context->setting_index);
             encrypt(&cipher_ctx, plaintext, ciphertext);
             ciphertexts.push_back(ciphertext);
         }
@@ -202,6 +243,16 @@ static size_t perform_experiment(ExperimentContext *context) {
     }
 
     return num_collisions;
+}
+
+// ---------------------------------------------------------
+
+static void print_ciphertexts(const SmallStatesVector& ciphertexts) {
+    for (size_t i = 0; i < NUM_TEXTS_IN_DELTA_SET; ++i) {
+        const uint8_t nibble = ciphertexts[i].state[0];
+        printf("%2zu %02x ", i, (uint8_t)(nibble & 0xF0));
+        utils::print_hex("", ciphertexts[i].state, SMALL_AES_NUM_STATE_BYTES);
+    }
 }
 
 // ---------------------------------------------------------
@@ -231,6 +282,12 @@ static size_t perform_experiment_from_diagonal(ExperimentContext *context) {
                 get_text_from_diagonal_delta_set(plaintext, m, j);
                 encrypt(&cipher_ctx, plaintext, ciphertext);
                 ciphertexts.push_back(ciphertext);
+            }
+
+            if (i == 0) {
+                printf("Diagonal %2zu\n", m);
+                print_ciphertexts(ciphertexts);
+                puts("");
             }
 
             num_collisions += find_num_collisions(ciphertexts);
@@ -266,7 +323,7 @@ static size_t perform_experiment_with_prp(ExperimentContext *context) {
 
         for (size_t j = 0; j < NUM_TEXTS_IN_DELTA_SET; ++j) {
             SmallState ciphertext;
-            get_text_from_delta_set(plaintext, j);
+            get_text_from_delta_set(plaintext, j, context->setting_index);
             speck64_encrypt(&cipher_ctx, plaintext, ciphertext.state);
             ciphertexts.push_back(ciphertext);
         }
@@ -345,6 +402,7 @@ static void parse_args(ExperimentContext *context,
     parser.addArgument("-s", "--num_sets_per_key", 1, false);
     parser.addArgument("-r", "--use_random_function", 1, false);
     parser.addArgument("-d", "--use_diagonals", 1, false);
+    parser.addArgument("-t", "--setting", 1, false);
 
     try {
         parser.parse((size_t) argc, argv);
@@ -352,6 +410,7 @@ static void parse_args(ExperimentContext *context,
         context->num_sets_per_key = static_cast<const size_t>(1L
             << parser.retrieveAsLong("s"));
         context->num_keys = parser.retrieveAsLong("k");
+        context->setting_index = parser.retrieveAsLong("t");
         context->use_prp = (bool) parser.retrieveAsInt("r");
         context->use_all_delta_sets_from_diagonal = (bool) parser.retrieveAsInt(
             "d");
@@ -360,8 +419,15 @@ static void parse_args(ExperimentContext *context,
         exit(EXIT_FAILURE);
     }
 
+    if ((context->setting_index < 1) || (context->setting_index > 12))  {
+        fprintf(stderr, "Setting must be in [1..12]\n");
+        fprintf(stderr, "%s\n", parser.usage().c_str());
+        exit(EXIT_FAILURE);
+    }
+
     printf("#Keys           %8zu\n", context->num_keys);
     printf("#Sets/Key (log) %8zu\n", context->num_sets_per_key);
+    printf("#Tested setting %8zu\n", context->setting_index);
     printf("#Uses PRP       %8d\n", context->use_prp);
     printf("#Uses Diagonal  %8d\n", context->use_all_delta_sets_from_diagonal);
 }

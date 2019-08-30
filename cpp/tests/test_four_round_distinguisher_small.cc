@@ -60,14 +60,13 @@ typedef std::vector<SmallState> SmallStatesVector;
 
 static void generate_base_plaintext(small_aes_state_t plaintext) {
     utils::get_random_bytes(plaintext, SMALL_AES_NUM_STATE_BYTES);
-    plaintext[0] = (uint8_t)(plaintext[0] & 0x0F);
 }
 
 // ---------------------------------------------------------
 
 static void get_text_from_delta_set(small_aes_state_t base_text,
                                     const size_t i) {
-    base_text[0] = (uint8_t) (((i << 4) & 0xF0) | (base_text[0] & 0x0F));
+    base_text[0] = (uint8_t)(i & 0x0F);
 }
 
 // ---------------------------------------------------------
@@ -200,6 +199,10 @@ static size_t perform_experiment(ExperimentContext *context) {
                        num_collisions);
             }
         }
+
+//        if (i == 3) {
+//            exit(1);
+//        }
     }
 
     return num_collisions;
@@ -210,8 +213,8 @@ static size_t perform_experiment(ExperimentContext *context) {
 static void print_ciphertexts(const SmallStatesVector& ciphertexts) {
     for (size_t i = 0; i < NUM_TEXTS_IN_DELTA_SET; ++i) {
         const uint8_t nibble = ciphertexts[i].state[0];
-        printf("%2zu %02x\n", i, (uint8_t)(nibble & 0xF0));
-//        utils::print_hex("", ciphertexts[i].state, SMALL_AES_NUM_STATE_BYTES);
+        printf("%2zu %02x ", i, (uint8_t)(nibble & 0xF0));
+        utils::print_hex("", ciphertexts[i].state, SMALL_AES_NUM_STATE_BYTES);
     }
 }
 
