@@ -63,6 +63,7 @@ namespace utils {
 #define vsetr8(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15) \
     _mm_setr_epi8(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15)
 
+#define vset8_single(x)  _mm_set1_epi8(x)
 #define vset8_single0(x) _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x)
 #define vset8_single1(x) _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x, 0)
 #define vset8_single2(x) _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x, 0, 0)
@@ -94,6 +95,7 @@ namespace utils {
 #define vis_zero(x)                 (_mm_testc_si128(zero, x) && _mm_testz_si128(zero, x))
 #define vare_equal(x, y)            vis_zero(vxor(x, y))
 
+#define vxor4values(a, b, c, d)     vxor(vxor(a, b), vxor(c, d))
 #define vxor4(x, y) {\
     x[0] = vxor(x[0], y[0]);\
     x[1] = vxor(x[1], y[1]);\
@@ -121,13 +123,14 @@ namespace utils {
     #define avxxor(x, y)                _mm256_xor_si256(x, y)
     #define avxor(x, y)                 _mm256_or_si256(x, y)
     #define avxshuffle(x, mask)         _mm256_shuffle_epi8(x, mask)
+    #define avxis_zero(x)               (_mm256_testc_si256(avxzero, x) && _mm256_testz_si256(avxzero, x))
 
     #define vget128(x, i)               _mm256_extracti128_si256(x, i)
     #define vset128(x0, x1)             _mm256_set_m128i(x1, x0)
 #elif defined(__AVX__)
     #define avx_to_float(x)             _mm256_castsi256_ps(x)
     #define avx_to_int(x)               _mm256_castps_si256(x)
-    #define avxzero                     _mm256_setzero_ps()
+    #define avxzero                     avx_to_int(_mm256_setzero_ps())
     #define avxand(x, y)                avx_to_int(_mm256_and_ps(avx_to_float(x), avx_to_float(y)))
     #define avxxor(x, y)                avx_to_int(_mm256_xor_ps(avx_to_float(x), avx_to_float(y)))
     #define avxor(x, y)                 avx_to_int(_mm256_or_ps(avx_to_float(x), avx_to_float(y)))

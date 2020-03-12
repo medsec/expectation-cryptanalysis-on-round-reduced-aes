@@ -103,4 +103,42 @@ namespace ciphers {
         to_byte_array(ciphertext, state);
     }
 
+    // ---------------------------------------------------------------------
+
+    __m256i small_aes_toy10_sbox_encrypt_round_4(__m256i state,
+                                                   const __m256i round_key) {
+        state = small_aes_custom_sbox_sub_bytes_4(state, SMALL_AES_TOY10_SBOX);
+        state = small_aes_shift_rows_4(state);
+        state = small_aes_mix_columns_4(state);
+        return avxxor(state, round_key);
+    }
+
+    // ---------------------------------------------------------------------
+
+    void
+    small_aes_toy10_sbox_encrypt_rounds_4_only_sbox_in_final(
+        const small_aes_ctx_t *ctx,
+        const uint8_t *plaintexts,
+        uint8_t *ciphertexts,
+        const size_t num_rounds) {
+        //
+        if (num_rounds > SMALL_AES_NUM_ROUNDS) {
+            return;
+        }
+
+        __m256i state = vset128(to_nibbles(plaintexts),
+                                to_nibbles(plaintexts + 16));
+
+        const __m256i *keys = ctx->key_4;
+        state = avxxor(state, keys[0]);
+
+        for (size_t i = 1; i < num_rounds; ++i) {
+            state = small_aes_toy10_sbox_encrypt_round_4(state, keys[i]);
+        }
+
+        state = small_aes_custom_sbox_sub_bytes_4(state, SMALL_AES_TOY10_SBOX);
+        state = avxxor(state, keys[num_rounds]);
+        to_byte_array_4(ciphertexts, state);
+    }
+
 }

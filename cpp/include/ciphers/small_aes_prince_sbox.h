@@ -46,6 +46,15 @@ namespace ciphers {
 
     // ---------------------------------------------------------------------
 
+    void
+    small_aes_prince_sbox_encrypt_rounds_4_only_sbox_in_final(
+        const small_aes_ctx_t *ctx,
+        const uint8_t *plaintexts,
+        uint8_t *ciphertexts,
+        size_t num_rounds);
+
+    // ---------------------------------------------------------------------
+
 }
 
 #endif  // _SMALL_AES_PRINCE_SBOX_H_

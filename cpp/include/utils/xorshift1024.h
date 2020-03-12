@@ -103,7 +103,7 @@ void get_random_bytes(xorshift_prng_ctx_t *ctx,
 
     if (num_bytes_remaining > 0) {
         const uint64_t word = xorshift1024_next(ctx);
-        memcpy(data, &word, num_bytes_remaining);
+        memcpy(data + num_words * wordsize, &word, num_bytes_remaining);
     }
 }
 

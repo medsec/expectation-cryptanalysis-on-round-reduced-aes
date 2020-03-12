@@ -32,10 +32,11 @@ namespace ciphers {
     // ---------------------------------------------------------------------
 
     void
-    small_aes_present_sbox_encrypt_rounds_always_mc(const small_aes_ctx_t *ctx,
-                                                    const small_aes_state_t plaintext,
-                                                    small_aes_state_t ciphertext,
-                                                    size_t num_rounds);
+    small_aes_present_sbox_encrypt_rounds_always_mc(
+        const small_aes_ctx_t *ctx,
+        const small_aes_state_t plaintext,
+        small_aes_state_t ciphertext,
+        size_t num_rounds);
 
     // ---------------------------------------------------------------------
 
@@ -51,6 +52,15 @@ namespace ciphers {
     small_aes_present_sbox_encrypt_rounds_only_sbox_in_final_with_aes_ni(
         const small_aes_ctx_t *ctx,
         __m128i plaintext,
+        size_t num_rounds);
+
+    // ---------------------------------------------------------------------
+
+    void
+    small_aes_present_sbox_encrypt_rounds_4_only_sbox_in_final(
+        const small_aes_ctx_t *ctx,
+        const uint8_t *plaintexts,
+        uint8_t *ciphertexts,
         size_t num_rounds);
 
     // ---------------------------------------------------------------------

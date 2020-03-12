@@ -43,14 +43,6 @@ namespace ciphers {
                                                (uint8_t)0x40, (uint8_t)0xf3, (uint8_t)0xfb, (uint8_t)0x81,\
                                                (uint8_t)0xd5, (uint8_t)0x09, (uint8_t)0x52, (uint8_t)0xbf)
 
-#define SMALL_AES_TIMES_TWO             vsetr8(0x0, 0x2, 0x4, 0x6, 0x8, 0xa, 0xc, 0xe, 0x3, 0x1, 0x7, 0x5, 0xb, 0x9, 0xf, 0xd)
-#define SMALL_AES_TIMES_THREE           vsetr8(0x0, 0x3, 0x6, 0x5, 0xc, 0xf, 0xa, 0x9, 0xb, 0x8, 0xd, 0xe, 0x7, 0x4, 0x1, 0x2)
-
-#define SMALL_AES_TIMES_9               vsetr8(0x0, 0x9, 0x1, 0x8, 0x2, 0xb, 0x3, 0xa, 0x4, 0xd, 0x5, 0xc, 0x6, 0xf, 0x7, 0xe)
-#define SMALL_AES_TIMES_11              vsetr8(0x0, 0xb, 0x5, 0xe, 0xa, 0x1, 0xf, 0x4, 0x7, 0xc, 0x2, 0x9, 0xd, 0x6, 0x8, 0x3)
-#define SMALL_AES_TIMES_13              vsetr8(0x0, 0xd, 0x9, 0x4, 0x1, 0xc, 0x8, 0x5, 0x2, 0xf, 0xb, 0x6, 0x3, 0xe, 0xa, 0x7)
-#define SMALL_AES_TIMES_14              vsetr8(0x0, 0xe, 0xf, 0x1, 0xd, 0x3, 0x2, 0xc, 0x9, 0x7, 0x6, 0x8, 0x4, 0xa, 0xb, 0x5)
-
 #define LO_NIBBLES_MASK                 vset64(0x0F0F0F0F0F0F0F0FL, 0x0F0F0F0F0F0F0F0FL)
 #define HI_NIBBLES_MASK                 vset64(0xF0F0F0F0F0F0F0F0L, 0xF0F0F0F0F0F0F0F0L)
 
@@ -776,7 +768,7 @@ namespace ciphers {
     small_aes_encrypt_rounds_4_only_sbox_in_final(const small_aes_ctx_t *ctx,
                                                   const uint8_t *plaintexts,
                                                   uint8_t *ciphertexts,
-                                                  size_t num_rounds) {
+                                                  const size_t num_rounds) {
         if (num_rounds > SMALL_AES_NUM_ROUNDS) {
             return;
         }
@@ -794,6 +786,32 @@ namespace ciphers {
         state = small_aes_sub_bytes_4(state);
         state = avxxor(state, keys[num_rounds]);
         to_byte_array_4(ciphertexts, state);
+    }
+
+    // ---------------------------------------------------------------------
+
+    __m256i
+    small_aes_encrypt_rounds_4_only_sbox_in_final_to_m256(
+        const small_aes_ctx_t *ctx,
+        const uint8_t *plaintexts,
+        const size_t num_rounds) {
+        //
+        if (num_rounds > SMALL_AES_NUM_ROUNDS) {
+            return avxzero;
+        }
+
+        __m256i state = vset128(to_nibbles(plaintexts),
+                                to_nibbles(plaintexts + 16));
+
+        const __m256i *keys = ctx->key_4;
+        state = avxxor(state, keys[0]);
+
+        for (size_t i = 1; i < num_rounds; ++i) {
+            state = small_aes_encrypt_round_4(state, keys[i]);
+        }
+
+        state = small_aes_sub_bytes_4(state);
+        return avxxor(state, keys[num_rounds]);
     }
 
     // ---------------------------------------------------------------------
@@ -833,6 +851,15 @@ namespace ciphers {
         return avxshuffle(
             state,
             vset128(SMALL_AES_SHIFT_ROWS, SMALL_AES_SHIFT_ROWS)
+        );
+    }
+
+    // ---------------------------------------------------------------------
+
+    __m256i small_aes_custom_sbox_sub_bytes_4(__m256i state, const __m128i sbox) {
+        return vset128(
+            shuffle_for_hi_and_lo_nibbles(sbox, vget128(state, 0)),
+            shuffle_for_hi_and_lo_nibbles(sbox, vget128(state, 1))
         );
     }
 

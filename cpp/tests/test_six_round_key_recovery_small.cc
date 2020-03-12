@@ -426,7 +426,6 @@ static void perform_experiment(ExperimentContext *context) {
 
     small_aes_ctx_t *cipher_ctx = &context->cipher_ctx;
     small_aes_key_t correct_key;
-    // = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef};
 
     utils::get_random_bytes(correct_key, SMALL_AES_NUM_KEY_BYTES);
     print_hex("# Full correct key", correct_key, SMALL_AES_NUM_KEY_BYTES);
